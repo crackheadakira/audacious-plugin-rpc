@@ -49,6 +49,8 @@ DiscordEventHandlers handlers;
 DiscordRichPresence presence;
 std::string fullTitle;
 std::string playingStatus;
+int songLength;
+int currentSongSpot;
 
 void init_discord()
 {
@@ -80,9 +82,9 @@ void cleanup_discord()
 
 void title_changed()
 {
-    std::string imgUrl;
     try
     {
+        std::string imgUrl;
         if (!aud_drct_get_ready())
         {
             return;
@@ -101,6 +103,11 @@ void title_changed()
             http::Request request{requestURL};
             const auto response = request.send("GET");
             std::string responseData(response.body.begin(), response.body.end());
+
+            songLength = aud_drct_get_length() / 1000;
+            currentSongSpot = aud_drct_get_time() / 1000;
+            int currentTime = time(NULL);
+            presence.endTimestamp = currentTime + (songLength - currentSongSpot);
 
             json responseJson = json::parse(responseData);
 
@@ -121,6 +128,10 @@ void title_changed()
 
             presence.details = fullTitle.c_str();
             presence.smallImageKey = paused ? "pause" : "play";
+            if (paused)
+            {
+                presence.endTimestamp = 0;
+            }
         }
         else
         {
@@ -129,7 +140,6 @@ void title_changed()
         }
 
         presence.largeImageKey = imgUrl.c_str();
-
         presence.state = playingStatus.c_str();
         update_presence();
     }
@@ -159,6 +169,7 @@ bool RPCPlugin::init()
     hook_associate("playback pause", update_title_presence, nullptr);
     hook_associate("playback unpause", update_title_presence, nullptr);
     hook_associate("title change", update_title_presence, nullptr);
+    hook_associate("playback seek", update_title_presence, nullptr);
     return true;
 }
 
@@ -170,6 +181,7 @@ void RPCPlugin::cleanup()
     hook_dissociate("playback pause", update_title_presence);
     hook_dissociate("playback unpause", update_title_presence);
     hook_dissociate("title change", update_title_presence);
+    hook_dissociate("playback seek", update_title_presence, nullptr);
     cleanup_discord();
 }
 
