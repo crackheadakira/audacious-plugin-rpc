@@ -20,6 +20,7 @@
 #define APPLICATION_ID "1036306255507095572"
 
 static const char *SETTING_EXTRA_TEXT = "extra_text";
+static const char *SETTING_FM_BUTTON = "fm_button";
 using json = nlohmann::json;
 
 class RPCPlugin : public GeneralPlugin
@@ -66,6 +67,7 @@ void init_presence()
     presence.state = "Initialized";
     presence.details = "Waiting...";
     presence.largeImageKey = "logo";
+    presence.largeImageText = "Audacious";
     presence.smallImageKey = "stop";
     update_presence();
 }
@@ -93,7 +95,7 @@ void title_changed()
             std::string artist(tuple.get_str(Tuple::Artist));
             std::string album(tuple.get_str(Tuple::Album));
             std::string title(tuple.get_str(Tuple::Title));
-
+            playingStatus = "on " + album;
             std::string requestURL("http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=29c8a554e57d377f721cf665d14f6b5f&artist=" + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
 
             http::Request request{requestURL};
@@ -117,20 +119,15 @@ void title_changed()
                 fullTitle = title.substr(0, 127);
             }
 
-            playingStatus = paused ? "Paused" : "Listening";
-
             presence.details = fullTitle.c_str();
             presence.smallImageKey = paused ? "pause" : "play";
         }
         else
         {
-            playingStatus = "Stopped";
             presence.state = "Stopped";
             presence.smallImageKey = "stop";
         }
 
-        std::string extraText(aud_get_str("audacious-plugin-rpc", SETTING_EXTRA_TEXT));
-        playingStatus = (playingStatus + " " + extraText).substr(0, 127);
         presence.largeImageKey = imgUrl.c_str();
 
         presence.state = playingStatus.c_str();
@@ -149,7 +146,7 @@ void update_title_presence(void *, void *)
 
 void open_github()
 {
-    system("xdg-open https://github.com/darktohka/audacious-plugin-rpc");
+    system("xdg-open https://github.com/crackheadakira/audacious-plugin-rpc");
 }
 
 bool RPCPlugin::init()
@@ -180,9 +177,6 @@ const char RPCPlugin::about[] = N_("Discord RPC music status plugin\n\nWritten b
 
 const PreferencesWidget RPCPlugin::widgets[] =
     {
-        WidgetEntry(
-            N_("Extra status text:"),
-            WidgetString("audacious-plugin-rpc", SETTING_EXTRA_TEXT, title_changed)),
         WidgetButton(
             N_("Fork on GitHub"),
             {open_github})};
