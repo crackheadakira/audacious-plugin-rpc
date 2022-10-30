@@ -1,6 +1,9 @@
 #include <iostream>
 #include <string.h>
 
+#include "HTTPRequest.hpp"
+#include "json.hpp"
+
 #include <libaudcore/drct.h>
 #include <libaudcore/i18n.h>
 #include <libaudcore/plugin.h>
@@ -13,11 +16,12 @@
 #include <discord_rpc.h>
 
 #define EXPORT __attribute__((visibility("default")))
-#define APPLICATION_ID "484736379171897344"
+#define APPLICATION_ID "1036306255507095572"
 
 static const char *SETTING_EXTRA_TEXT = "extra_text";
 
-class RPCPlugin : public GeneralPlugin {
+class RPCPlugin : public GeneralPlugin
+{
 
 public:
     static const char about[];
@@ -28,10 +32,9 @@ public:
         N_("Discord RPC"),
         "audacious-plugin-rpc",
         about,
-        &prefs
-    };
+        &prefs};
 
-    constexpr RPCPlugin() : GeneralPlugin (info, false) {}
+    constexpr RPCPlugin() : GeneralPlugin(info, false) {}
 
     bool init();
     void cleanup();
@@ -44,16 +47,19 @@ DiscordRichPresence presence;
 std::string fullTitle;
 std::string playingStatus;
 
-void init_discord() {
+void init_discord()
+{
     memset(&handlers, 0, sizeof(handlers));
     Discord_Initialize(APPLICATION_ID, &handlers, 1, NULL);
 }
 
-void update_presence() {
+void update_presence()
+{
     Discord_UpdatePresence(&presence);
 }
 
-void init_presence() {
+void init_presence()
+{
     memset(&presence, 0, sizeof(presence));
     presence.state = "Initialized";
     presence.details = "Waiting...";
@@ -62,25 +68,44 @@ void init_presence() {
     update_presence();
 }
 
-void cleanup_discord() {
+void cleanup_discord()
+{
     Discord_ClearPresence();
     Discord_Shutdown();
 }
 
-void title_changed() {
-    if (!aud_drct_get_ready()) {
+void title_changed()
+{
+
+    if (!aud_drct_get_ready())
+    {
         return;
     }
 
-    if (aud_drct_get_playing()) {
+    if (aud_drct_get_playing())
+    {
         bool paused = aud_drct_get_paused();
         Tuple tuple = aud_drct_get_tuple();
         String artist = tuple.get_str(Tuple::Artist);
         std::string title(tuple.get_str(Tuple::Title));
 
-        if (artist) {
+        std::string requestURL("http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=29c8a554e57d377f721cf665d14f6b5f&artist=straykids&album=noeasy&format=json");
+        http::Request request{requestURL};
+        const auto response = request.send("GET");
+        std::string responseResult{response.body.begin(), response.body.end()};
+        using json = nlohmann::json;
+        auto responseJson = json::parse(responseResult);
+        std::string albumCoverURLString = responseJson["album"]["image"][3]["#text"];
+        const char *albumCoverURL = albumCoverURLString.c_str();
+
+        presence.largeImageKey = albumCoverURL;
+
+        if (artist)
+        {
             fullTitle = (std::string(artist) + " - " + title).substr(0, 127);
-        } else {
+        }
+        else
+        {
             fullTitle = title.substr(0, 127);
         }
 
@@ -88,7 +113,9 @@ void title_changed() {
 
         presence.details = fullTitle.c_str();
         presence.smallImageKey = paused ? "pause" : "play";
-    } else {
+    }
+    else
+    {
         playingStatus = "Stopped";
         presence.state = "Stopped";
         presence.smallImageKey = "stop";
@@ -101,15 +128,18 @@ void title_changed() {
     update_presence();
 }
 
-void update_title_presence(void*, void*) {
+void update_title_presence(void *, void *)
+{
     title_changed();
 }
 
-void open_github() {
-   system("xdg-open https://github.com/darktohka/audacious-plugin-rpc");
+void open_github()
+{
+    system("xdg-open https://github.com/darktohka/audacious-plugin-rpc");
 }
 
-bool RPCPlugin::init() {
+bool RPCPlugin::init()
+{
     init_discord();
     init_presence();
     hook_associate("playback ready", update_title_presence, nullptr);
@@ -121,7 +151,8 @@ bool RPCPlugin::init() {
     return true;
 }
 
-void RPCPlugin::cleanup() {
+void RPCPlugin::cleanup()
+{
     hook_dissociate("playback ready", update_title_presence);
     hook_dissociate("playback end", update_title_presence);
     hook_dissociate("playback stop", update_title_presence);
@@ -131,18 +162,15 @@ void RPCPlugin::cleanup() {
     cleanup_discord();
 }
 
-const char RPCPlugin::about[] = N_("Discord RPC music status plugin\n\nWritten by: Derzsi Daniel <daniel@tohka.us>");
+const char RPCPlugin::about[] = N_("Discord RPC music status plugin\n\nWritten by: Derzsi Daniel <daniel@tohka.us> \n\n Edited by: crackheadakira, Sayykii, Tibix”");
 
 const PreferencesWidget RPCPlugin::widgets[] =
-{
-  WidgetEntry(
-      N_("Extra status text:"),
-      WidgetString("audacious-plugin-rpc", SETTING_EXTRA_TEXT, title_changed)
-  ),
-  WidgetButton(
-      N_("Fork on GitHub"),
-      {open_github}
-  )
-};
+    {
+        WidgetEntry(
+            N_("Extra status text:"),
+            WidgetString("audacious-plugin-rpc", SETTING_EXTRA_TEXT, title_changed)),
+        WidgetButton(
+            N_("Fork on GitHub"),
+            {open_github})};
 
-const PluginPreferences RPCPlugin::prefs = {{ widgets }};
+const PluginPreferences RPCPlugin::prefs = {{widgets}};
