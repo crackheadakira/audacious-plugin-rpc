@@ -78,10 +78,9 @@ void cleanup_discord()
 
 void title_changed()
 {
+    std::string imgUrl;
     try
     {
-        const char *albumCoverURL;
-
         if (!aud_drct_get_ready())
         {
             return;
@@ -100,11 +99,14 @@ void title_changed()
             http::Request request{requestURL};
             const auto response = request.send("GET");
             std::string responseData(response.body.begin(), response.body.end());
-            std::cout << requestURL + "\n";
 
             json responseJson = json::parse(responseData);
 
-            albumCoverURL = std::string(responseJson["album"]["image"][3]["#text"]).c_str();
+            auto test = responseJson["album"]["image"][3]["#text"];
+            for (auto it = test.cbegin(); it != test.cend(); ++it)
+            {
+                imgUrl += *it;
+            }
 
             if (artist.length() > 0)
             {
@@ -129,8 +131,7 @@ void title_changed()
 
         std::string extraText(aud_get_str("audacious-plugin-rpc", SETTING_EXTRA_TEXT));
         playingStatus = (playingStatus + " " + extraText).substr(0, 127);
-        // presence.largeImageKey = albumCoverURL;
-        std::cout << std::string(albumCoverURL) + "\n";
+        presence.largeImageKey = imgUrl.c_str();
 
         presence.state = playingStatus.c_str();
         update_presence();
