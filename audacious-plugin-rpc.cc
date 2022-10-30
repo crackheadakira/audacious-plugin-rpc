@@ -176,7 +176,7 @@ void RPCPlugin::cleanup()
     cleanup_discord();
 }
 
-const char RPCPlugin::about[] = N_("Discord RPC music status plugin\n\nWritten by: Derzsi Daniel <daniel@tohka.us> \n\n Edited by: crackheadakira, Sayykii, Tibix");
+const char RPCPlugin::about[] = N_("Discord RPC music status plugin\n\nWritten by: Derzsi Daniel <daniel@tohka.us> \n\n Modified by: crackheadakira, Sayykii, Levev");
 
 const PreferencesWidget RPCPlugin::widgets[] =
     {
