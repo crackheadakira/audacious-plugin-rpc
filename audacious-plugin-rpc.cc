@@ -18,9 +18,6 @@
 
 #define EXPORT __attribute__((visibility("default")))
 #define APPLICATION_ID "1036306255507095572"
-
-static const char *SETTING_EXTRA_TEXT = "extra_text";
-static const char *SETTING_FM_BUTTON = "fm_button";
 using json = nlohmann::json;
 
 class RPCPlugin : public GeneralPlugin
@@ -97,18 +94,22 @@ void title_changed()
             std::string artist(tuple.get_str(Tuple::Artist));
             std::string album(tuple.get_str(Tuple::Album));
             std::string title(tuple.get_str(Tuple::Title));
+            presence.largeImageText = album.c_str();
             playingStatus = "on " + album;
-            std::string requestURL("http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=29c8a554e57d377f721cf665d14f6b5f&artist=" + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
 
+            // Make request to Last.fm
+            std::string requestURL("http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=29c8a554e57d377f721cf665d14f6b5f&artist=" + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
             http::Request request{requestURL};
             const auto response = request.send("GET");
             std::string responseData(response.body.begin(), response.body.end());
 
+            // Song timestamp
             songLength = aud_drct_get_length() / 1000;
             currentSongSpot = aud_drct_get_time() / 1000;
             int currentTime = time(NULL);
             presence.endTimestamp = currentTime + (songLength - currentSongSpot);
 
+            // Parse json data
             json responseJson = json::parse(responseData);
 
             auto test = responseJson["album"]["image"][3]["#text"];
@@ -128,6 +129,7 @@ void title_changed()
 
             presence.details = fullTitle.c_str();
             presence.smallImageKey = paused ? "pause" : "play";
+            presence.smallImageText = paused ? "Paused" : "Playing";
             if (paused)
             {
                 presence.endTimestamp = 0;
