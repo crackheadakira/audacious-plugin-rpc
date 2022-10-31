@@ -94,8 +94,8 @@ void title_changed()
             std::string artist(tuple.get_str(Tuple::Artist));
             std::string album(tuple.get_str(Tuple::Album));
             std::string title(tuple.get_str(Tuple::Title));
-            presence.largeImageText = album.c_str();
             playingStatus = "on " + album;
+            presence.largeImageText = tuple.get_str(Tuple::Album);
 
             // Make request to Last.fm
             std::string requestURL("http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=29c8a554e57d377f721cf665d14f6b5f&artist=" + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
@@ -187,7 +187,7 @@ void RPCPlugin::cleanup()
     cleanup_discord();
 }
 
-const char RPCPlugin::about[] = N_("Discord RPC music status plugin\n\nWritten by: Derzsi Daniel <daniel@tohka.us> \n\n Modified by: crackheadakira, Sayykii, Levev");
+const char RPCPlugin::about[] = N_("Discord RPC Plugin\n\nOriginal Code Written by: Derzsi Daniel <daniel@tohka.us> \n\n Modified by: crackheadakira, Sayykii, Levev and Tibix");
 
 const PreferencesWidget RPCPlugin::widgets[] =
     {
