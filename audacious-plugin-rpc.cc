@@ -2,17 +2,17 @@
 #include <string.h>
 
 #include "HTTPRequest.hpp"
-#include "json.hpp"
 #include "encode.h"
+#include "json.hpp"
 
+#include <libaudcore/audstrings.h>
 #include <libaudcore/drct.h>
+#include <libaudcore/hook.h>
 #include <libaudcore/i18n.h>
 #include <libaudcore/plugin.h>
-#include <libaudcore/hook.h>
-#include <libaudcore/audstrings.h>
-#include <libaudcore/tuple.h>
 #include <libaudcore/preferences.h>
 #include <libaudcore/runtime.h>
+#include <libaudcore/tuple.h>
 
 #include <discord_rpc.h>
 
@@ -20,34 +20,30 @@
 #define APPLICATION_ID "1036306255507095572"
 using json = nlohmann::json;
 
-class RPCPlugin : public GeneralPlugin
-{
-
+class RPCPlugin : public GeneralPlugin {
 public:
     static const char about[];
     static const PreferencesWidget widgets[];
     static const PluginPreferences prefs;
 
-    static constexpr PluginInfo info = {
-        N_("Discord RPC"),
-        "audacious-plugin-rpc",
-        about,
-        &prefs};
+    static constexpr PluginInfo info = { N_("Discord RPC"), "audacious-plugin-rpc", about, &prefs };
 
-    constexpr RPCPlugin() : GeneralPlugin(info, false) {}
+    constexpr RPCPlugin()
+        : GeneralPlugin(info, false)
+    {
+    }
 
     bool init();
     void cleanup();
 };
 
 EXPORT RPCPlugin aud_plugin_instance;
+static const char* fetch_album = "TRUE";
 
 DiscordEventHandlers handlers;
 DiscordRichPresence presence;
 std::string fullTitle;
 std::string playingStatus;
-int songLength;
-int currentSongSpot;
 
 void init_discord()
 {
@@ -55,10 +51,7 @@ void init_discord()
     Discord_Initialize(APPLICATION_ID, &handlers, 1, NULL);
 }
 
-void update_presence()
-{
-    Discord_UpdatePresence(&presence);
-}
+void update_presence() { Discord_UpdatePresence(&presence); }
 
 void init_presence()
 {
@@ -79,16 +72,13 @@ void cleanup_discord()
 
 void title_changed()
 {
-    try
-    {
+    try {
         std::string imgUrl;
-        if (!aud_drct_get_ready())
-        {
+        if (!aud_drct_get_ready()) {
             return;
         }
 
-        if (aud_drct_get_playing())
-        {
+        if (aud_drct_get_playing()) {
             bool paused = aud_drct_get_paused();
             Tuple tuple = aud_drct_get_tuple();
             std::string artist(tuple.get_str(Tuple::Artist));
@@ -97,69 +87,55 @@ void title_changed()
             playingStatus = "on " + album;
             presence.largeImageText = tuple.get_str(Tuple::Album);
 
-            // Make request to Last.fm
-            std::string requestURL("http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=29c8a554e57d377f721cf665d14f6b5f&artist=" + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
-            http::Request request{requestURL};
-            const auto response = request.send("GET");
-            std::string responseData(response.body.begin(), response.body.end());
+            // Logic for getting timestamp that can be sent to Discord
+            int songLength = aud_drct_get_length() / 1000;
+            int currentSongSpot = aud_drct_get_time() / 1000;
+            presence.endTimestamp = paused ? 0 : time(NULL) + (songLength - currentSongSpot);
 
-            // Song timestamp
-            songLength = aud_drct_get_length() / 1000;
-            currentSongSpot = aud_drct_get_time() / 1000;
-            int currentTime = time(NULL);
-            presence.endTimestamp = currentTime + (songLength - currentSongSpot);
+            // Make request to last.FM to get album info
+            if (aud_get_bool("lastfm_album", fetch_album)) {
+                std::string requestURL("http://ws.audioscrobbler.com/2.0/"
+                                       "?method=album.getinfo&api_key="
+                                       "29c8a554e57d377f721cf665d14f6b5f&artist="
+                    + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
+                http::Request request { requestURL };
+                const auto response = request.send("GET");
+                std::string responseData(response.body.begin(), response.body.end());
 
-            // Parse json data
-            json responseJson = json::parse(responseData);
+                // Parse JSON data and get usable image URL
+                json responseJson = json::parse(responseData);
 
-            auto test = responseJson["album"]["image"][3]["#text"];
-            for (auto it = test.cbegin(); it != test.cend(); ++it)
-            {
-                imgUrl += *it;
+                auto test = responseJson["album"]["image"][3]["#text"];
+                for (auto it = test.cbegin(); it != test.cend(); ++it) {
+                    imgUrl += *it;
+                }
             }
 
-            if (artist.length() > 0)
-            {
+            if (artist.length() > 0) {
                 fullTitle = (std::string(artist) + " - " + title).substr(0, 127);
-            }
-            else
-            {
+            } else {
                 fullTitle = title.substr(0, 127);
             }
 
             presence.details = fullTitle.c_str();
             presence.smallImageKey = paused ? "pause" : "play";
             presence.smallImageText = paused ? "Paused" : "Playing";
-            if (paused)
-            {
-                presence.endTimestamp = 0;
-            }
-        }
-        else
-        {
+        } else {
             presence.state = "Stopped";
             presence.smallImageKey = "stop";
         }
 
-        presence.largeImageKey = imgUrl.c_str();
+        presence.largeImageKey = aud_get_bool("lastfm_album", fetch_album) ? imgUrl.c_str() : "logo";
         presence.state = playingStatus.c_str();
         update_presence();
-    }
-    catch (const std::exception &exc)
-    {
+    } catch (const std::exception& exc) {
         presence.largeImageKey = "logo";
     }
 }
 
-void update_title_presence(void *, void *)
-{
-    title_changed();
-}
+void update_title_presence(void*, void*) { title_changed(); }
 
-void open_github()
-{
-    system("xdg-open https://github.com/crackheadakira/audacious-plugin-rpc");
-}
+void open_github() { system("xdg-open https://github.com/crackheadakira/audacious-plugin-rpc"); }
 
 bool RPCPlugin::init()
 {
@@ -183,16 +159,15 @@ void RPCPlugin::cleanup()
     hook_dissociate("playback pause", update_title_presence);
     hook_dissociate("playback unpause", update_title_presence);
     hook_dissociate("title change", update_title_presence);
-    hook_dissociate("playback seek", update_title_presence, nullptr);
+    hook_dissociate("playback seek", update_title_presence);
     cleanup_discord();
 }
 
-const char RPCPlugin::about[] = N_("Discord RPC Plugin\n\nOriginal Code Written by: Derzsi Daniel <daniel@tohka.us> \n\n Modified by: crackheadakira, Sayykii, Levev and Tibix");
+const char RPCPlugin::about[] = N_("Discord RPC Plugin \n Written by: Derzsi Daniel <daniel@tohka.us> \n Modified by: "
+                                   "crackheadakira, Sayykii, Levev and Tibix");
 
-const PreferencesWidget RPCPlugin::widgets[] =
-    {
-        WidgetButton(
-            N_("Fork on GitHub"),
-            {open_github})};
+const PreferencesWidget RPCPlugin::widgets[] = { WidgetCheck(N_("Fetch album from Last.FM and display it on Discord"),
+                                                     WidgetBool("lastfm_album", fetch_album, title_changed)),
+    WidgetButton(N_("Fork on GitHub"), { open_github }) };
 
-const PluginPreferences RPCPlugin::prefs = {{widgets}};
+const PluginPreferences RPCPlugin::prefs = { { widgets } };
