@@ -1,9 +1,9 @@
 #include <iostream>
 #include <string.h>
 
-#include "HTTPRequest.hpp"
-#include "encode.h"
-#include "json.hpp"
+#include "libs/HTTPRequest.hpp"
+#include "libs/encode.h"
+#include "libs/json.hpp"
 
 #include <libaudcore/audstrings.h>
 #include <libaudcore/drct.h>
@@ -60,7 +60,6 @@ void init_presence()
     presence.details = "Waiting...";
     presence.largeImageKey = "logo";
     presence.largeImageText = "Audacious";
-    presence.smallImageKey = "stop";
     update_presence();
 }
 
@@ -94,8 +93,7 @@ void title_changed()
 
             // Make request to last.FM to get album info
             if (aud_get_bool("lastfm_album", fetch_album)) {
-                std::string requestURL("http://ws.audioscrobbler.com/2.0/"
-                                       "?method=album.getinfo&api_key="
+                std::string requestURL("http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key="
                                        "29c8a554e57d377f721cf665d14f6b5f&artist="
                     + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
                 http::Request request { requestURL };
@@ -146,8 +144,8 @@ bool RPCPlugin::init()
     hook_associate("playback stop", update_title_presence, nullptr);
     hook_associate("playback pause", update_title_presence, nullptr);
     hook_associate("playback unpause", update_title_presence, nullptr);
-    hook_associate("title change", update_title_presence, nullptr);
     hook_associate("playback seek", update_title_presence, nullptr);
+    hook_associate("title change", update_title_presence, nullptr);
     return true;
 }
 
@@ -158,8 +156,8 @@ void RPCPlugin::cleanup()
     hook_dissociate("playback stop", update_title_presence);
     hook_dissociate("playback pause", update_title_presence);
     hook_dissociate("playback unpause", update_title_presence);
-    hook_dissociate("title change", update_title_presence);
     hook_dissociate("playback seek", update_title_presence);
+    hook_dissociate("title change", update_title_presence);
     cleanup_discord();
 }
 
