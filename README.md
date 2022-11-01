@@ -1,6 +1,9 @@
 # audacious-plugin-rpc
 A Discord Rich Presence plugin for the Audacious music player!
 
+# Requirements
+A Last.FM api key, which you can get [here](https://www.last.fm/api/account/create).
+
 # Usage
 1. Download the current release from the [releases page](https://github.com/crackheadakira/audacious-plugin-rpc/releases).
 2. Extract `libaudacious-plugin-rpc.so` into the folder `/usr/lib/audacious/General/`.

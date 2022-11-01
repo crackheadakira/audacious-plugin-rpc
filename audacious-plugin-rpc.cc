@@ -39,11 +39,13 @@ public:
 
 EXPORT RPCPlugin aud_plugin_instance;
 static const char* fetch_album = "TRUE";
+static const char* lastfm_api_key = "";
 
 DiscordEventHandlers handlers;
 DiscordRichPresence presence;
 std::string fullTitle;
 std::string playingStatus;
+std::string lastfm_key;
 
 void init_discord()
 {
@@ -86,26 +88,30 @@ void title_changed()
             playingStatus = "on " + album;
             presence.largeImageText = tuple.get_str(Tuple::Album);
 
+            lastfm_key = aud_get_str("lastfm_api_key", lastfm_api_key);
+
             // Logic for getting timestamp that can be sent to Discord
             int songLength = aud_drct_get_length() / 1000;
             int currentSongSpot = aud_drct_get_time() / 1000;
             presence.endTimestamp = paused ? 0 : time(NULL) + (songLength - currentSongSpot);
 
             // Make request to last.FM to get album info
-            if (aud_get_bool("lastfm_album", fetch_album)) {
-                std::string requestURL("http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key="
-                                       "29c8a554e57d377f721cf665d14f6b5f&artist="
-                    + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
-                http::Request request { requestURL };
-                const auto response = request.send("GET");
-                std::string responseData(response.body.begin(), response.body.end());
+            if (lastfm_key.length() > 0) {
+                if (aud_get_bool("lastfm_album", fetch_album)) {
+                    std::string requestURL(
+                        "http://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=" + lastfm_key
+                        + "&artist=" + url_encode(artist) + "&album=" + url_encode(album) + "&format=json");
+                    http::Request request { requestURL };
+                    const auto response = request.send("GET");
+                    std::string responseData(response.body.begin(), response.body.end());
 
-                // Parse JSON data and get usable image URL
-                json responseJson = json::parse(responseData);
+                    // Parse JSON data and get usable image URL
+                    json responseJson = json::parse(responseData);
 
-                auto test = responseJson["album"]["image"][3]["#text"];
-                for (auto it = test.cbegin(); it != test.cend(); ++it) {
-                    imgUrl += *it;
+                    auto test = responseJson["album"]["image"][3]["#text"];
+                    for (auto it = test.cbegin(); it != test.cend(); ++it) {
+                        imgUrl += *it;
+                    }
                 }
             }
 
@@ -123,7 +129,8 @@ void title_changed()
             presence.smallImageKey = "stop";
         }
 
-        presence.largeImageKey = aud_get_bool("lastfm_album", fetch_album) ? imgUrl.c_str() : "logo";
+        presence.largeImageKey
+            = aud_get_bool("lastfm_album", fetch_album) && lastfm_key.length() > 0 ? imgUrl.c_str() : "logo";
         presence.state = playingStatus.c_str();
         update_presence();
     } catch (const std::exception& exc) {
@@ -166,6 +173,7 @@ const char RPCPlugin::about[] = N_("Discord RPC Plugin \n Written by: Derzsi Dan
 
 const PreferencesWidget RPCPlugin::widgets[] = { WidgetCheck(N_("Fetch album from Last.FM and display it on Discord"),
                                                      WidgetBool("lastfm_album", fetch_album, title_changed)),
+    WidgetEntry(N_("Add your Last.FM Api key:"), WidgetString("lastfm_api_key", lastfm_api_key, title_changed)),
     WidgetButton(N_("Fork on GitHub"), { open_github }) };
 
 const PluginPreferences RPCPlugin::prefs = { { widgets } };
