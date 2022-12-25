@@ -39,6 +39,7 @@ public:
 
 EXPORT RPCPlugin aud_plugin_instance;
 static const char* fetch_album = "TRUE";
+static const char* discord_button = "TRUE";
 static const char* lastfm_api_key = "";
 
 DiscordEventHandlers handlers;
@@ -75,6 +76,7 @@ void title_changed()
 {
     try {
         std::string imgUrl;
+        std::string albumUrl;
         if (!aud_drct_get_ready()) {
             return;
         }
@@ -107,6 +109,7 @@ void title_changed()
 
                     // Parse JSON data and get usable image URL
                     json responseJson = json::parse(responseData);
+                    albumUrl = responseJson["album"]["url"];
 
                     auto test = responseJson["album"]["image"][3]["#text"];
                     for (auto it = test.cbegin(); it != test.cend(); ++it) {
@@ -119,6 +122,11 @@ void title_changed()
                 fullTitle = (std::string(artist) + " - " + title).substr(0, 127);
             } else {
                 fullTitle = title.substr(0, 127);
+            }
+
+            if (albumUrl.length() > 0 && aud_get_bool("discord_button", discord_button)) {
+                presence.buttonLabel[0] = "View Album on Last.FM";
+                presence.buttonUrl[0] = albumUrl.c_str();
             }
 
             presence.details = fullTitle.c_str();
@@ -173,6 +181,7 @@ const char RPCPlugin::about[] = N_("Discord RPC Plugin \n Written by: Derzsi Dan
 
 const PreferencesWidget RPCPlugin::widgets[] = { WidgetCheck(N_("Fetch album from Last.FM and display it on Discord"),
                                                      WidgetBool("lastfm_album", fetch_album, title_changed)),
+    WidgetCheck(N_("Show button to album on Discord"), WidgetBool("discord_button", discord_button, title_changed)),
     WidgetEntry(N_("Add your Last.FM Api key:"), WidgetString("lastfm_api_key", lastfm_api_key, title_changed)),
     WidgetButton(N_("Fork on GitHub"), { open_github }) };
 
