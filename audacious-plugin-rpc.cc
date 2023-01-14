@@ -38,8 +38,8 @@ public:
 };
 
 EXPORT RPCPlugin aud_plugin_instance;
-static const char* fetch_album = "TRUE";
-static const char* discord_button = "TRUE";
+static const char* fetch_album = "";
+static const char* show_button = "";
 static const char* lastfm_api_key = "";
 
 DiscordEventHandlers handlers;
@@ -70,6 +70,12 @@ void cleanup_discord()
 {
     Discord_ClearPresence();
     Discord_Shutdown();
+}
+
+void cleanup_button(int idx)
+{
+    presence.buttonLabel[idx] = nullptr;
+    presence.buttonUrl[idx] = nullptr;
 }
 
 void title_changed()
@@ -109,7 +115,9 @@ void title_changed()
 
                     // Parse JSON data and get usable image URL
                     json responseJson = json::parse(responseData);
-                    albumUrl = responseJson["album"]["url"];
+
+                    if (aud_get_bool("discord_button", show_button))
+                        albumUrl = responseJson["album"]["url"];
 
                     auto test = responseJson["album"]["image"][3]["#text"];
                     for (auto it = test.cbegin(); it != test.cend(); ++it) {
@@ -124,9 +132,11 @@ void title_changed()
                 fullTitle = title.substr(0, 127);
             }
 
-            if (albumUrl.length() > 0 && aud_get_bool("discord_button", discord_button)) {
-                presence.buttonLabel[0] = "View Album on Last.FM";
+            if (albumUrl.length() > 0) {
+                presence.buttonLabel[0] = "View on Last.FM";
                 presence.buttonUrl[0] = albumUrl.c_str();
+            } else {
+                cleanup_button(0);
             }
 
             presence.details = fullTitle.c_str();
@@ -136,9 +146,11 @@ void title_changed()
             presence.state = "Stopped";
             presence.smallImageKey = "stop";
         }
+        if (aud_get_bool("lastfm_album", fetch_album) && imgUrl.length() > 0)
+            presence.largeImageKey = imgUrl.c_str();
+        else
+            presence.largeImageKey = "logo";
 
-        presence.largeImageKey
-            = aud_get_bool("lastfm_album", fetch_album) && lastfm_key.length() > 0 ? imgUrl.c_str() : "logo";
         presence.state = playingStatus.c_str();
         update_presence();
     } catch (const std::exception& exc) {
@@ -179,9 +191,9 @@ void RPCPlugin::cleanup()
 const char RPCPlugin::about[] = N_("Discord RPC Plugin \n Written by: Derzsi Daniel <daniel@tohka.us> \n Modified by: "
                                    "crackheadakira, Sayykii, Levev and Tibix");
 
-const PreferencesWidget RPCPlugin::widgets[] = { WidgetCheck(N_("Fetch album from Last.FM and display it on Discord"),
-                                                     WidgetBool("lastfm_album", fetch_album, title_changed)),
-    WidgetCheck(N_("Show button to album on Discord"), WidgetBool("discord_button", discord_button, title_changed)),
+const PreferencesWidget RPCPlugin::widgets[] = { WidgetLabel(N_("<b>Main Settings</b>")),
+    WidgetCheck(N_("Show album art on Discord"), WidgetBool("lastfm_album", fetch_album, title_changed)),
+    WidgetCheck(N_("Show button to Last.FM page"), WidgetBool("discord_button", show_button, title_changed)),
     WidgetEntry(N_("Add your Last.FM Api key:"), WidgetString("lastfm_api_key", lastfm_api_key, title_changed)),
     WidgetButton(N_("Fork on GitHub"), { open_github }) };
 
